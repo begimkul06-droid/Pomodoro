@@ -5,23 +5,70 @@ function Setting({
   onClose,
   pomodoroTime,
   shortBreakTime,
+  longBreakTime,
   onPomodoroChange,
   onShortBreakChange,
   onLongBreakChange,
+  longBreakInterval,
+  onLongBreakIntervalChange,
+  autoStartBreaks,
+  onAutoStartBreaksChange,
+  autoStartPomodoros,
+  onAutoStartPomodorosChange,
 }) {
-  const [localPomodoroTime, setLocalPomodoroTime] = useState(pomodoroTime);
-  const [localShortBreakTime, setLocalShortBreakTime] =
-    useState(shortBreakTime);
-  const [localLongBreakTime, setLocalLongBreakTime] = useState(shortBreakTime);
+  // 🧠 LocalStorage'тен алынган маанилерди баштапкы абалга коюу
+  const getSavedSettings = () => {
+    const saved = localStorage.getItem("pomodoroSettings");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        pomodoro: parsed.pomodoroTime,
+        shortBreak: parsed.shortBreakTime,
+        longBreak: parsed.longBreakTime,
+        longBreakInterval: parsed.longBreakInterval,
+        autoStartBreaks: parsed.autoStartBreaks,
+        autoStartPomodoros: parsed.autoStartPomodoros,
+      };
+    }
+    return {
+      pomodoro: pomodoroTime,
+      shortBreak: shortBreakTime,
+      longBreak: longBreakTime,
+      longBreakInterval,
+      autoStartBreaks,
+      autoStartPomodoros,
+    };
+  };
 
-  const handlePomodoroChange = (e) => setLocalPomodoroTime(e.target.value);
-  const handleShortBreakChange = (e) => setLocalShortBreakTime(e.target.value);
-  const handleLongBreakChange = (e) => setLocalLongBreakTime(e.target.value);
+  const saved = getSavedSettings();
+
+  const [localPomodoroTime, setLocalPomodoroTime] = useState(saved.pomodoro);
+  const [localShortBreakTime, setLocalShortBreakTime] = useState(saved.shortBreak);
+  const [localLongBreakTime, setLocalLongBreakTime] = useState(saved.longBreak);
+  const [localLongBreakInterval, setLocalLongBreakInterval] = useState(saved.longBreakInterval);
+  const [localAutoStartBreaks, setLocalAutoStartBreaks] = useState(saved.autoStartBreaks);
+  const [localAutoStartPomodoros, setLocalAutoStartPomodoros] = useState(saved.autoStartPomodoros);
 
   const handleOk = () => {
+    // ✅ Parent компонентке жана localStorage'ке сактоо
     onPomodoroChange(localPomodoroTime);
     onShortBreakChange(localShortBreakTime);
     onLongBreakChange(localLongBreakTime);
+    onLongBreakIntervalChange(Number(localLongBreakInterval));
+    onAutoStartBreaksChange(localAutoStartBreaks);
+    onAutoStartPomodorosChange(localAutoStartPomodoros);
+
+    localStorage.setItem(
+      "pomodoroSettings",
+      JSON.stringify({
+        pomodoroTime: Number(localPomodoroTime),
+        shortBreakTime: Number(localShortBreakTime),
+        longBreakTime: Number(localLongBreakTime),
+        longBreakInterval: Number(localLongBreakInterval),
+        autoStartBreaks: localAutoStartBreaks,
+        autoStartPomodoros: localAutoStartPomodoros,
+      })
+    );
 
     onClose();
   };
@@ -32,76 +79,42 @@ function Setting({
         <div className="flex justify-center gap-40 py-2 pl-35">
           <h1 className="text-[#aaa] font-semibold">SETTING</h1>
           <button
-            className="text-[#aaa] cursor-pointer rounded-md mr-2 hover:bg-gray-200 p-0.5"
+            className="text-[#aaa] cursor-pointer rounded-md mr-2 hover:bg-gray-200 px-1.5"
             onClick={onClose}
           >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              stroke-width="0"
-              viewBox="0 0 384 512"
-              class="w-5 h-5 text-black/30"
-              height="1em"
-              width="1em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"></path>
-            </svg>
+            ✕
           </button>
         </div>
-        <hr className="text-[#aaa]" />
+        <hr className="text-[#aaa] h-0.5" />
 
-        <div className="pt-6 gap-2 pl-5">
-          <div className="flex items-center gap-2">
-            <svg
-              className="mb-0.5 text-[#aaa] font-bold"
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 512 512"
-              height="1em"
-              width="1em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M464 256A208 208 0 1 1 48 256a208
-               208 0 1 1 416 0zM0 256a256 256 0 1 0 512 
-               0A256 256 0 1 0 0 256zM232 120l0 136c0 8 4 
-               15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.
-               4-25.9-6.7-33.3L280 243.2 280 120c0-13.3-10.7-
-               24-24-24s-24 10.7-24 24z"
-              ></path>
-            </svg>
-            <h1 className="text-[#aaa] font-bold text-sm">Timer</h1>
-          </div>
+        <div className="gap-2 pl-5 mt-7">
           <h1 className="pt-3 font-bold text-[#555]">Time (minutes)</h1>
-
           <div className="flex justify-around">
-            <div className="flex flex-col">
-              <label className="text-[#aaa] font-bold text-sm">Pomodoro</label>
+            <div className="flex flex-col text-[#aaa]">
+              <label>Pomodoro</label>
               <input
                 type="number"
                 className="bg-[#efefef] w-23 rounded p-2.5 text-black"
                 value={localPomodoroTime}
-                onChange={handlePomodoroChange}
+                onChange={(e) => setLocalPomodoroTime(e.target.value)}
               />
             </div>
-            <div className="flex flex-col">
-              <label className="text-[#aaa] font-bold text-sm">Short Break</label>
+            <div className="flex flex-col text-[#aaa]">
+              <label>Short Break</label>
               <input
                 type="number"
                 className="bg-[#efefef] w-23 rounded p-2.5 text-black"
                 value={localShortBreakTime}
-                onChange={handleShortBreakChange}
+                onChange={(e) => setLocalShortBreakTime(e.target.value)}
               />
             </div>
-            <div className="flex flex-col">
-              <label className="text-[#aaa] font-bold text-sm">Long Break</label>
+            <div className="flex flex-col text-[#aaa]">
+              <label>Long Break</label>
               <input
                 type="number"
                 className="bg-[#efefef] w-23 rounded p-2.5 text-black"
                 value={localLongBreakTime}
-                onChange={handleLongBreakChange}
+                onChange={(e) => setLocalLongBreakTime(e.target.value)}
               />
             </div>
           </div>
@@ -110,28 +123,34 @@ function Setting({
         <div className="mt-4">
           <div className="flex ml-5.5 gap-39 my-5">
             <label className="text-[#555] font-bold">Auto Start Breaks</label>
-            <ToggleSwitch />
+            <ToggleSwitch
+              checked={localAutoStartBreaks}
+              onChange={() => setLocalAutoStartBreaks((prev) => !prev)}
+            />
           </div>
 
           <div className="flex ml-5.5 gap-30 my-5">
-            <label className="text-[#555] font-bold">
-              Auto Start Pomodoros
-            </label>
-            <ToggleSwitch />
+            <label className="text-[#555] font-bold">Auto Start Pomodoros</label>
+            <ToggleSwitch
+              checked={localAutoStartPomodoros}
+              onChange={() => setLocalAutoStartPomodoros((prev) => !prev)}
+            />
           </div>
 
           <div className="flex ml-5.5 gap-33 mb-5">
-            <label className="text-[#555] font-bold">Long Break interval</label>
+            <label className="text-[#555] font-bold">Long Break Interval</label>
             <input
               type="number"
               className="p-2 max-w-18 bg-[#efefef] rounded-md text-black"
+              value={localLongBreakInterval}
+              onChange={(e) => setLocalLongBreakInterval(e.target.value)}
             />
           </div>
         </div>
 
         <div className="bg-gray-100 flex justify-end rounded-xl">
           <button
-            className="bg-[#45474B] py-1 px-4 rounded-xl my-3 mr-5 text-white font-semibold cursor-pointer"
+            className="bg-[#45474B] py-1 px-4 rounded-xl my-3 mr-5 text-white font-semibold"
             onClick={handleOk}
           >
             OK

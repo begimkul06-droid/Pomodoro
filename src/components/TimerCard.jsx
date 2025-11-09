@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
 const formatTime = (commonSeconds) => {
   const minutes = Math.floor(commonSeconds / 60);
   const seconds = commonSeconds % 60;
-  const newMinutes = minutes < 10 ? "0" + minutes : minutes;
-  const newSeconds = seconds < 10 ? "0" + seconds : seconds;
-  return `${newMinutes}:${newSeconds}`;
+  return `${minutes < 10 ? "0" : ""}${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 };
 
 function TimerCard({
@@ -15,82 +13,134 @@ function TimerCard({
   onProgress,
   mode,
   setMode,
+  longBreakInterval,
+  autoStartPomodoros,
+  autoStartBreaks,
 }) {
-  const [timer, setTimer] = useState(pomodoroTime);
-  const [statusBtn, setStatusBtn] = useState(false);
-  const intervalRef = useRef(null);
-
-  const pomodoroRef = useRef(null);
-  const shortBreakRef = useRef(null);
-  const longBreakRef = useRef(null);
-
-  useEffect(() => {
-    clearInterval(intervalRef.current);
-    setStatusBtn(false);
-
-    if (mode === "pomodoro") {
-      setTimer(pomodoroTime);
-    } else if (mode === "shortBreak") {
-      setTimer(shortBreakTime);
-    } else if (mode === "longBreak") {
-      setTimer(longBreakTime);
+  // 🔹 LocalStorage’дан убакыт алуу
+  const getSavedTimes = () => {
+    const saved = localStorage.getItem("pomodoroSettings");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        pomodoro: Number(parsed.pomodoroTime || pomodoroTime) * 60,
+        shortBreak: Number(parsed.shortBreakTime || shortBreakTime) * 60,
+        longBreak: Number(parsed.longBreakTime || longBreakTime) * 60,
+      };
     }
-  }, [mode, pomodoroTime, shortBreakTime, longBreakTime]);
-
-  useEffect(() => {
-    if (!statusBtn) return;
-
-    intervalRef.current = setInterval(() => {
-      setTimer((prev) => {
-        const newTime = prev > 0 ? prev - 1 : 0;
-
-        const currentTime =
-          mode === "pomodoro"
-            ? pomodoroTime
-            : mode === "shortBreak"
-            ? shortBreakTime
-            : longBreakTime;
-
-        onProgress(((currentTime - newTime) / currentTime) * 100);
-
-        if (newTime === 0) clearInterval(intervalRef.current);
-        return newTime;
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalRef.current);
-  }, [
-    statusBtn,
-    mode,
-    pomodoroTime,
-    shortBreakTime,
-    longBreakTime,
-    onProgress,
-  ]);
-
-  const handleStatusBtn = () => {
-    if (!statusBtn && timer === 0) {
-      if (mode === "pomodoro") setTimer(pomodoroTime);
-      else if (mode === "shortBreak") setTimer(shortBreakTime);
-      else setTimer(longBreakTime);
-    }
-    setStatusBtn((prev) => !prev);
+    return {
+      pomodoro: pomodoroTime * 60,
+      shortBreak: shortBreakTime * 60,
+      longBreak: longBreakTime * 60,
+    };
   };
 
+  // 🔹 useMemo — times ар render сайын өзгөрбөсүн
+  const times = useMemo(() => getSavedTimes(), [pomodoroTime, shortBreakTime, longBreakTime]);
+
+  const [timer, setTimer] = useState(
+    mode === "pomodoro" ? times.pomodoro : mode === "shortBreak" ? times.shortBreak : times.longBreak
+  );
+  const [isRunning, setIsRunning] = useState(false);
+  const [pomodoroCount, setPomodoroCount] = useState(0);
+  const intervalRef = useRef(null);
+
+  // 🔹 Mode өзгөргөндө таймерди жаңылоо
+  useEffect(() => {
+    setTimer(
+      mode === "pomodoro" ? times.pomodoro : mode === "shortBreak" ? times.shortBreak : times.longBreak
+    );
+    onProgress(0);
+    setIsRunning(
+      (mode === "pomodoro" && pomodoroCount > 0 && autoStartPomodoros) ||
+      ((mode === "shortBreak" || mode === "longBreak") && autoStartBreaks) ||
+      false
+    );
+  }, [mode, times, pomodoroCount, autoStartPomodoros, autoStartBreaks]);
+
+  // 🔹 Таймер иштеши
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const tick = () => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          onProgress(100);
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          handleNext();
+          return 0;
+        }
+        const total =
+          mode === "pomodoro"
+            ? times.pomodoro
+            : mode === "shortBreak"
+            ? times.shortBreak
+            : times.longBreak;
+        onProgress(((total - prev) / total) * 100);
+        return prev - 1;
+      });
+    };
+
+    intervalRef.current = setInterval(tick, 1000);
+
+    return () => {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    };
+  }, [isRunning, mode, times]);
+
+  // 🔹 Кийинки этапка өтүү
+  const handleNext = () => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+
+    let nextMode;
+    if (mode === "pomodoro") {
+      const nextCount = pomodoroCount + 1;
+      setPomodoroCount(nextCount);
+      nextMode = nextCount % longBreakInterval === 0 ? "longBreak" : "shortBreak";
+    } else {
+      nextMode = "pomodoro";
+    }
+
+    const nextTimer =
+      nextMode === "pomodoro"
+        ? times.pomodoro
+        : nextMode === "shortBreak"
+        ? times.shortBreak
+        : times.longBreak;
+
+    setMode(nextMode);
+    setTimer(nextTimer);
+    onProgress(0);
+
+    setIsRunning(
+      (nextMode === "pomodoro" && autoStartPomodoros) ||
+      ((nextMode === "shortBreak" || nextMode === "longBreak") && autoStartBreaks)
+    );
+  };
+
+  // 🔹 Start / Pause кнопкасы
+  const handleStartPause = () => {
+    if (timer === 0) {
+      const currentTimer =
+        mode === "pomodoro"
+          ? times.pomodoro
+          : mode === "shortBreak"
+          ? times.shortBreak
+          : times.longBreak;
+      setTimer(currentTimer);
+      onProgress(0);
+    }
+    setIsRunning((prev) => !prev);
+  };
+
+  // 🔹 Skip кнопкасы
   const handleSkip = () => {
     clearInterval(intervalRef.current);
-    setStatusBtn(false);
-
-    if (mode === "pomodoro") {
-      setMode("shortBreak");
-      setTimeout(() => shortBreakRef.current?.focus(), 0);
-    } else if (mode === "shortBreak") {
-      setMode("longBreak");
-      setTimeout(() => longBreakRef.current?.focus(), 0);
-    } else {
-      setMode("pomodoro");
-      setTimeout(() => pomodoroRef.current?.focus(), 0);
-    }
+    intervalRef.current = null;
+    handleNext();
   };
 
   return (
@@ -105,7 +155,6 @@ function TimerCard({
           >
             Pomodoro
           </button>
-
           <button
             className={`cursor-pointer py-0.5 px-3 rounded-md ${
               mode === "shortBreak" ? "bg-[#00000026]" : ""
@@ -114,7 +163,6 @@ function TimerCard({
           >
             Short Break
           </button>
-
           <button
             className={`cursor-pointer py-0.5 px-3 rounded-md ${
               mode === "longBreak" ? "bg-[#00000026]" : ""
@@ -131,20 +179,20 @@ function TimerCard({
 
         <div className="flex justify-center ml-15 mt-8 gap-16">
           <button
-            className={` bg-white font-semibold text-2xl 
-              px-12 py-2 rounded text-center cursor-pointer transition-all 
-              duration-200 active:translate-y-[3px] mb-10
-              ${statusBtn ? "mt-1.5" : "shadow-[0px_6px_0px_hsl(358,0%,92%)]"}`}
-            onClick={handleStatusBtn}
+            className={`bg-white font-semibold text-2xl px-12 py-2 rounded text-center cursor-pointer transition-all duration-200 active:translate-y-[3px] mb-10 ${
+              isRunning ? "mt-1.5" : "shadow-[0px_6px_0px_hsl(358,0%,92%)]"
+            }
+              ${mode === "pomodoro" ? "text-[rgb(186,73,73)]" : ""} ${
+              mode === "shortBreak" ? "text-[rgb(76,145,149)]" : ""
+            } ${mode === "longBreak" ? "text-[rgb(69,124,163)]" : ""}`}
+            onClick={handleStartPause}
           >
-            {statusBtn ? "PAUSE" : "START"}
+            {isRunning ? "PAUSE" : "START"}
           </button>
 
           <button
             className={`transition-opacity duration-500 ${
-              statusBtn
-                ? "opacity-100 mb-3"
-                : "opacity-0 pointer-events-none mb-3"
+              isRunning ? "opacity-100 mb-3" : "opacity-0 pointer-events-none mb-3"
             }`}
             onClick={handleSkip}
           >
@@ -156,6 +204,7 @@ function TimerCard({
           </button>
         </div>
       </div>
+      <p className="text-white">#{pomodoroCount}</p>
     </div>
   );
 }
