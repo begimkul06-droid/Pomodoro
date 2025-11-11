@@ -3,7 +3,9 @@ import { useEffect, useRef, useState, useMemo } from "react";
 const formatTime = (commonSeconds) => {
   const minutes = Math.floor(commonSeconds / 60);
   const seconds = commonSeconds % 60;
-  return `${minutes < 10 ? "0" : ""}${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  return `${minutes < 10 ? "0" : ""}${minutes}:${
+    seconds < 10 ? "0" : ""
+  }${seconds}`;
 };
 
 function TimerCard({
@@ -29,17 +31,24 @@ function TimerCard({
       };
     }
     return {
-      pomodoro: pomodoroTime * 60,
-      shortBreak: shortBreakTime * 60,
-      longBreak: longBreakTime * 60,
+      pomodoro: pomodoroTime * 25,
+      shortBreak: shortBreakTime * 5,
+      longBreak: longBreakTime * 15,
     };
   };
 
   // 🔹 useMemo — times ар render сайын өзгөрбөсүн
-  const times = useMemo(() => getSavedTimes(), [pomodoroTime, shortBreakTime, longBreakTime]);
+  const times = useMemo(
+    () => getSavedTimes(),
+    [pomodoroTime, shortBreakTime, longBreakTime]
+  );
 
   const [timer, setTimer] = useState(
-    mode === "pomodoro" ? times.pomodoro : mode === "shortBreak" ? times.shortBreak : times.longBreak
+    mode === "pomodoro"
+      ? times.pomodoro
+      : mode === "shortBreak"
+      ? times.shortBreak
+      : times.longBreak
   );
   const [isRunning, setIsRunning] = useState(false);
   const [pomodoroCount, setPomodoroCount] = useState(0);
@@ -48,13 +57,17 @@ function TimerCard({
   // 🔹 Mode өзгөргөндө таймерди жаңылоо
   useEffect(() => {
     setTimer(
-      mode === "pomodoro" ? times.pomodoro : mode === "shortBreak" ? times.shortBreak : times.longBreak
+      mode === "pomodoro"
+        ? times.pomodoro
+        : mode === "shortBreak"
+        ? times.shortBreak
+        : times.longBreak
     );
     onProgress(0);
     setIsRunning(
       (mode === "pomodoro" && pomodoroCount > 0 && autoStartPomodoros) ||
-      ((mode === "shortBreak" || mode === "longBreak") && autoStartBreaks) ||
-      false
+        ((mode === "shortBreak" || mode === "longBreak") && autoStartBreaks) ||
+        false
     );
   }, [mode, times, pomodoroCount, autoStartPomodoros, autoStartBreaks]);
 
@@ -99,7 +112,8 @@ function TimerCard({
     if (mode === "pomodoro") {
       const nextCount = pomodoroCount + 1;
       setPomodoroCount(nextCount);
-      nextMode = nextCount % longBreakInterval === 0 ? "longBreak" : "shortBreak";
+      nextMode =
+        nextCount % longBreakInterval === 0 ? "longBreak" : "shortBreak";
     } else {
       nextMode = "pomodoro";
     }
@@ -117,7 +131,8 @@ function TimerCard({
 
     setIsRunning(
       (nextMode === "pomodoro" && autoStartPomodoros) ||
-      ((nextMode === "shortBreak" || nextMode === "longBreak") && autoStartBreaks)
+        ((nextMode === "shortBreak" || nextMode === "longBreak") &&
+          autoStartBreaks)
     );
   };
 
@@ -192,7 +207,9 @@ function TimerCard({
 
           <button
             className={`transition-opacity duration-500 ${
-              isRunning ? "opacity-100 mb-3" : "opacity-0 pointer-events-none mb-3"
+              isRunning
+                ? "opacity-100 mb-3"
+                : "opacity-0 pointer-events-none mb-3"
             }`}
             onClick={handleSkip}
           >
